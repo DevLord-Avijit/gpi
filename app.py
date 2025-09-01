@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, send_file, render_template, redirect,
 from flask_socketio import SocketIO, emit, join_room
 from datetime import datetime
 import uuid, qrcode, io, json, decimal, re
+import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
