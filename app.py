@@ -215,8 +215,6 @@ def on_join(data):
     join_room(gpi_id)
 
 # ----------------- Run App -----------------
-if __name__ == "__main__":
-    ensure_default_user()
-    # Make accessible over LAN
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+if __name__ == '__main__':
+    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
 
