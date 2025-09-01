@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mobile GPI Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body>
+<h2>Welcome, {{ user.name }} ({{ user.balance }} GPI)</h2>
+
+{% if error %}
+    <p style="color:red;">{{ error }}</p>
+{% endif %}
+{% if success %}
+    <p style="color:green;">{{ success }}</p>
+{% endif %}
+
+<h3>Scan QR Code</h3>
+<div id="qr-reader" style="width:300px"></div>
+
+<form id="payment-form" method="POST" style="display:none;">
+    <input type="hidden" name="to" id="to">
+    <label>Amount:</label><br>
+    <input type="number" name="amount" step="0.01" min="1" required id="amount"><br><br>
+    <button type="submit">Send</button>
+</form>
+
+<script>
+    const socket = io();
+    socket.emit('join', {'gpi_id': '{{ gpi_id }}'});
+
+    function onScanSuccess(decodedText, decodedResult) {
+        // Stop scanning immediately
+        html5QrcodeScanner.clear().catch(error => console.error('Failed to clear QR scanner', error));
+
+        // Validate QR
+        if (!decodedText.startsWith("gpi://pay?to=")) {
+            alert("Invalid QR code!");
+            return;
+        }
+
+        let params = new URLSearchParams(decodedText.split('?')[1]);
+        let toGpi = params.get('to');
+
+        if (!toGpi) {
+            alert("Invalid QR code!");
+            return;
+        }
+
+        if (toGpi === '{{ gpi_id }}') {
+            alert("Cannot pay yourself!");
+            return;
+        }
+
+        // Fill the form and show
+        document.getElementById("to").value = toGpi;
+        document.getElementById("payment-form").style.display = "block";
+
+        // Focus on amount to open keyboard on mobile
+        document.getElementById("amount").focus();
+    }
+
+    var html5QrcodeScanner = new Html5QrcodeScanner(
+        "qr-reader", { fps: 10, qrbox: 250 });
+    html5QrcodeScanner.render(onScanSuccess);
+</script>
+</body>
+</html>

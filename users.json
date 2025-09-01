@@ -1,0 +1,20 @@
+{
+  "avijit@gpi": {
+    "name": "Avijit Singh",
+    "balance": 11989.1,
+    "password": "1234",
+    "token": "4a69354a-fd23-4511-8860-ead5d692bc65"
+  },
+  "alice@gpi": {
+    "name": "Alice",
+    "balance": 2020.0,
+    "password": "alice123",
+    "token": ""
+  },
+  "jitesh@gpi": {
+    "name": "Jitesh",
+    "balance": 100.0,
+    "password": "1234",
+    "token": "431c3234-06f4-4b3a-82fc-fdadfd45d606"
+  }
+}

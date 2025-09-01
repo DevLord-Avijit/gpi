@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPI Dashboard</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Socket.IO -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
+    <!-- QR Scanner -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
+    <style>
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fadeIn {
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        .transaction-card {
+            transition: all 0.3s ease;
+        }
+
+        .transaction-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 font-sans">
+
+    <div class="max-w-md mx-auto p-4 space-y-6">
+
+        <!-- Balance -->
+        <div class="bg-white rounded-2xl p-6 shadow-lg animate-fadeIn text-center">
+            <h2 class="text-xl font-semibold text-gray-700">Hello, {{ user.name }}</h2>
+            <p class="text-3xl font-bold text-gray-900 mt-2"><span id="balance">{{ user.balance }}</span> GPI</p>
+        </div>
+
+        <!-- Payment Form -->
+        <div class="bg-white p-4 rounded-2xl shadow animate-fadeIn">
+            <h3 class="text-lg font-semibold mb-3">Send Money</h3>
+            <form id="payment-form" method="POST" class="space-y-3">
+                <input type="text" name="to" id="to" placeholder="To GPI ID"
+                    class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    required>
+                <input type="number" name="amount" id="amount" step="0.01" min="1" placeholder="Amount"
+                    class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    required>
+                <button type="submit"
+                    class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 rounded transition-all duration-200 ease-in-out shadow hover:shadow-lg">
+                    Send Payment
+                </button>
+            </form>
+
+            <!-- Scanner Button BELOW the form -->
+            <button id="open-scanner"
+                class="w-full mt-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 rounded flex items-center justify-center transition-all duration-200 shadow hover:shadow-lg">
+                <!-- Camera icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M3 8l3-3h12l3 3v11a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+                    <circle cx="12" cy="13" r="3" stroke="currentColor" stroke-width="2" />
+                </svg>
+                Scan QR
+            </button>
+        </div>
+
+
+        <!-- Transactions -->
+        <div class="space-y-4">
+            <h3 class="text-lg font-semibold text-gray-700">Recent Transactions</h3>
+            <div id="tx-list" class="space-y-3">
+                {% for tx in transactions %}
+                <div
+                    class="transaction-card bg-white p-4 rounded-xl shadow flex justify-between items-center animate-fadeIn {% if tx.from == gpi_id %}border-l-4 border-red-500{% else %}border-l-4 border-green-500{% endif %}">
+                    <div>
+                        <p class="font-medium text-gray-800">
+                            {% if tx.from == gpi_id %}
+                            Sent to {{ tx.to }}
+                            {% else %}
+                            Received from {{ tx.from }}
+                            {% endif %}
+                        </p>
+                        <p class="text-gray-500 text-sm">{{ tx.timestamp }}</p>
+                    </div>
+                    <p class="font-semibold {% if tx.from == gpi_id %}text-red-500{% else %}text-green-500{% endif %}">
+                        {{ tx.amount }} GPI</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Your QR Code -->
+        <div class="bg-white p-4 rounded-2xl shadow text-center animate-fadeIn">
+            <h3 class="text-lg font-semibold mb-3">Your QR Code</h3>
+            <img src="{{ url_for('generate_qr', gpi_id=gpi_id) }}" alt="QR Code" class="mx-auto w-40 h-40">
+        </div>
+
+    </div>
+
+
+
+    <!-- Scanner Modal -->
+    <div id="scanner-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-50">
+        <div class="bg-white p-4 rounded-xl w-11/12 max-w-sm relative">
+            <button id="close-scanner" class="absolute top-2 right-2 text-gray-500 hover:text-gray-700">&times;</button>
+            <h3 class="text-lg font-semibold mb-2">Scan QR Code</h3>
+            <div id="qr-reader" class="w-full"></div>
+            <div class="mt-2 flex justify-between items-center">
+                <button id="switch-camera" class="bg-gray-200 px-3 py-1 rounded">Switch Camera</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const gpi_id = "{{ gpi_id }}";
+        let balance = parseFloat("{{ user.balance }}");
+        let currentCameraId = null;
+        let cameras = [];
+
+        socket.emit('join', { gpi_id: gpi_id });
+
+        // Transaction update
+        socket.on('transaction_update', data => {
+            const tx = data.tx;
+            const container = document.getElementById('tx-list');
+
+            const card = document.createElement('div');
+            card.className = `transaction-card bg-white p-4 rounded-xl shadow flex justify-between items-center animate-fadeIn ${tx.from === gpi_id ? 'border-l-4 border-red-500' : 'border-l-4 border-green-500'}`;
+            card.innerHTML = `
+        <div>
+            <p class="font-medium text-gray-800">${tx.from === gpi_id ? 'Sent to ' + tx.to : 'Received from ' + tx.from}</p>
+            <p class="text-gray-500 text-sm">${tx.timestamp}</p>
+        </div>
+        <p class="font-semibold ${tx.from === gpi_id ? 'text-red-500' : 'text-green-500'}">${tx.amount} GPI</p>
+    `;
+            container.prepend(card);
+
+            if (tx.from === gpi_id) balance -= parseFloat(tx.amount);
+            if (tx.to === gpi_id) balance += parseFloat(tx.amount);
+            document.getElementById("balance").innerText = balance.toFixed(2);
+        });
+
+        // QR Scanner Logic
+        const scannerModal = document.getElementById('scanner-modal');
+        const openBtn = document.getElementById('open-scanner');
+        const closeBtn = document.getElementById('close-scanner');
+        const switchBtn = document.getElementById('switch-camera');
+        const paymentForm = document.getElementById('payment-form');
+
+        openBtn.addEventListener('click', async () => {
+            scannerModal.classList.remove('hidden');
+            if (!cameras.length) {
+                cameras = await Html5Qrcode.getCameras();
+                currentCameraId = cameras[0].id;
+            }
+            startScanner(currentCameraId);
+        });
+
+        closeBtn.addEventListener('click', () => {
+            scannerModal.classList.add('hidden');
+            html5QrcodeScanner.clear().catch(console.error);
+        });
+
+        switchBtn.addEventListener('click', () => {
+            if (cameras.length > 1) {
+                const index = cameras.findIndex(cam => cam.id === currentCameraId);
+                currentCameraId = cameras[(index + 1) % cameras.length].id;
+                html5QrcodeScanner.stop().then(() => startScanner(currentCameraId));
+            }
+        });
+
+        let html5QrcodeScanner = null;
+        function startScanner(cameraId) {
+            html5QrcodeScanner = new Html5Qrcode("qr-reader");
+            html5QrcodeScanner.start(
+                cameraId,
+                { fps: 10, qrbox: 250 },
+                decodedText => {
+                    html5QrcodeScanner.stop().then(() => {
+                        scannerModal.classList.add('hidden');
+
+                        if (!decodedText.startsWith("gpi://pay?to=")) {
+                            alert("Invalid QR code!");
+                            return;
+                        }
+
+                        const params = new URLSearchParams(decodedText.split('?')[1]);
+                        const toGpi = params.get('to');
+                        if (!toGpi || toGpi === gpi_id) { alert("Cannot pay this QR!"); return; }
+
+                        document.getElementById('to').value = toGpi;
+                        paymentForm.style.display = 'block';
+                        document.getElementById('amount').focus();
+                    });
+                },
+                errorMessage => { /* ignore scan errors */ }
+            );
+        }
+    </script>
+</body>
+
+</html>
