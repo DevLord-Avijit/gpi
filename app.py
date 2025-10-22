@@ -194,20 +194,26 @@ def mobile_dashboard(token):
 def generate_qr(gpi_id):
     users = load_users()
     if gpi_id not in users:
+        app.logger.error(f"QR: User '{gpi_id}' not found")
         return f"User '{gpi_id}' not found", 404
 
     amount = request.args.get("amount", 0)
     qr_data = f"gpi://pay?to={gpi_id}&amount={amount}"
+    app.logger.info(f"QR: Generating QR for {gpi_id} with data: {qr_data}")
 
-    qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_H, box_size=10, border=4)
-    qr.add_data(qr_data)
-    qr.make(fit=True)
-    qr_img = qr.make_image(fill_color="black", back_color="white")
+    try:
+        qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_H, box_size=10, border=4)
+        qr.add_data(qr_data)
+        qr.make(fit=True)
+        qr_img = qr.make_image(fill_color="black", back_color="white")
 
-    buf = io.BytesIO()
-    qr_img.save(buf, format="PNG")
-    buf.seek(0)
-    return send_file(buf, mimetype="image/png")
+        buf = io.BytesIO()
+        qr_img.save(buf, format="PNG")
+        buf.seek(0)
+        return send_file(buf, mimetype="image/png")
+    except Exception as e:
+        app.logger.error(f"QR generation failed: {e}")
+        return "QR generation error", 500
 
 # ----------------- SocketIO -----------------
 @socketio.on('join')
@@ -217,5 +223,5 @@ def on_join(data):
 
 # ----------------- Run App -----------------
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
 

@@ -30,6 +30,7 @@
     socket.emit('join', {'gpi_id': '{{ gpi_id }}'});
 
     function onScanSuccess(decodedText, decodedResult) {
+        console.log("QR decoded:", decodedText); // Add this for debugging
         // Stop scanning immediately
         html5QrcodeScanner.clear().catch(error => console.error('Failed to clear QR scanner', error));
 
