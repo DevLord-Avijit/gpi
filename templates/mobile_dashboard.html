@@ -1,69 +1,90 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>Mobile GPI Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px);}
+            to { opacity: 1; transform: translateY(0);}
+        }
+        .animate-fadeIn { animation: fadeIn 0.5s ease forwards; }
+        .glass {
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px 0 rgba(31,38,135,0.15);
+        }
+    </style>
 </head>
-<body>
-<h2>Welcome, {{ user.name }} ({{ user.balance }} GPI)</h2>
+<body class="bg-gradient-to-br from-blue-100 via-purple-100 to-pink-200 min-h-screen flex flex-col items-center justify-center font-sans">
+    <div class="w-full max-w-sm mx-auto p-4 space-y-6">
+        <div class="glass rounded-2xl shadow-xl p-6 text-center animate-fadeIn">
+            <h2 class="text-xl font-bold text-blue-700 mb-2">Welcome, {{ user.name }}</h2>
+            <p class="text-2xl font-extrabold text-gray-900 mb-2"><span>{{ user.balance }}</span> GPI</p>
+        </div>
+        {% if error %}
+            <p class="text-red-500 text-center animate-fadeIn">{{ error }}</p>
+        {% endif %}
+        {% if success %}
+            <p class="text-green-500 text-center animate-fadeIn">{{ success }}</p>
+        {% endif %}
+        <div class="glass rounded-2xl shadow p-4 animate-fadeIn">
+            <h3 class="text-lg font-semibold mb-3 text-blue-700">Scan QR Code</h3>
+            <div id="qr-reader" class="mx-auto mb-4" style="width:300px"></div>
+            <form id="payment-form" method="POST" style="display:none;" class="space-y-4">
+                <input type="hidden" name="to" id="to">
+                <div>
+                    <label class="block text-gray-700 font-medium mb-1">Amount</label>
+                    <input type="number" name="amount" step="0.01" min="1" required id="amount"
+                        class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-400 transition">
+                </div>
+                <button type="submit" class="w-full py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold rounded-lg shadow hover:bg-blue-600 transition">Send</button>
+            </form>
+        </div>
+    </div>
+    <script>
+        const socket = io();
+        socket.emit('join', {'gpi_id': '{{ gpi_id }}'});
 
-{% if error %}
-    <p style="color:red;">{{ error }}</p>
-{% endif %}
-{% if success %}
-    <p style="color:green;">{{ success }}</p>
-{% endif %}
+        function onScanSuccess(decodedText, decodedResult) {
+            console.log("QR decoded:", decodedText); // Add this for debugging
+            // Stop scanning immediately
+            html5QrcodeScanner.clear().catch(error => console.error('Failed to clear QR scanner', error));
 
-<h3>Scan QR Code</h3>
-<div id="qr-reader" style="width:300px"></div>
+            // Validate QR
+            if (!decodedText.startsWith("gpi://pay?to=")) {
+                alert("Invalid QR code!");
+                return;
+            }
 
-<form id="payment-form" method="POST" style="display:none;">
-    <input type="hidden" name="to" id="to">
-    <label>Amount:</label><br>
-    <input type="number" name="amount" step="0.01" min="1" required id="amount"><br><br>
-    <button type="submit">Send</button>
-</form>
+            let params = new URLSearchParams(decodedText.split('?')[1]);
+            let toGpi = params.get('to');
 
-<script>
-    const socket = io();
-    socket.emit('join', {'gpi_id': '{{ gpi_id }}'});
+            if (!toGpi) {
+                alert("Invalid QR code!");
+                return;
+            }
 
-    function onScanSuccess(decodedText, decodedResult) {
-        console.log("QR decoded:", decodedText); // Add this for debugging
-        // Stop scanning immediately
-        html5QrcodeScanner.clear().catch(error => console.error('Failed to clear QR scanner', error));
+            if (toGpi === '{{ gpi_id }}') {
+                alert("Cannot pay yourself!");
+                return;
+            }
 
-        // Validate QR
-        if (!decodedText.startsWith("gpi://pay?to=")) {
-            alert("Invalid QR code!");
-            return;
+            // Fill the form and show
+            document.getElementById("to").value = toGpi;
+            document.getElementById("payment-form").style.display = "block";
+
+            // Focus on amount to open keyboard on mobile
+            document.getElementById("amount").focus();
         }
 
-        let params = new URLSearchParams(decodedText.split('?')[1]);
-        let toGpi = params.get('to');
-
-        if (!toGpi) {
-            alert("Invalid QR code!");
-            return;
-        }
-
-        if (toGpi === '{{ gpi_id }}') {
-            alert("Cannot pay yourself!");
-            return;
-        }
-
-        // Fill the form and show
-        document.getElementById("to").value = toGpi;
-        document.getElementById("payment-form").style.display = "block";
-
-        // Focus on amount to open keyboard on mobile
-        document.getElementById("amount").focus();
-    }
-
-    var html5QrcodeScanner = new Html5QrcodeScanner(
-        "qr-reader", { fps: 10, qrbox: 250 });
-    html5QrcodeScanner.render(onScanSuccess);
-</script>
+        var html5QrcodeScanner = new Html5QrcodeScanner(
+            "qr-reader", { fps: 10, qrbox: 250 });
+        html5QrcodeScanner.render(onScanSuccess);
+    </script>
 </body>
 </html>
