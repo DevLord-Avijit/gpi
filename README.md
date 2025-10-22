@@ -28,13 +28,13 @@ This repo is intended for:
 
 ## Installation (quick)
 
-- Clone the repo: `git clone https://github.com/yourusername/fake-upi.git` then `cd fake-upi`
+- Clone the repo: `git clone https://github.com/DevLord-Avijit/gpi` then `cd gpi`
 - Install dependencies:
   - Python/Flask: `pip install -r requirements.txt`
   - Node/Express + frontend: `npm install`
 - Start app:
   - Flask: `python app.py` (default port 5000)
-  - Node: `npm start` (default port 3000)
+  
 - Open browser at `http://localhost:5000` or `http://localhost:3000` depending on chosen stack.
 
 ---
@@ -104,13 +104,9 @@ All endpoints are under the `/api` prefix. Replace hostname and port as needed.
 - Description: Simulate scanning & paying a QR; moves fake balance between accounts and returns transaction details
 - Example response: {"success": true, "transaction": {...}, "balance": 9700}
 
-### 8) Admin / leaderboard (optional)
-- Method: GET
-- URL: /api/leaderboard
-- Description: Returns sorted list of users by fake balance
-- Example response: [{"id":"user10","name":"Richie","balance":1000000}, ...]
 
-### 9) Health / ping
+
+### 8) Health / ping
 - Method: GET
 - URL: /api/health
 - Description: Basic health check for deployment/monitoring
@@ -151,7 +147,7 @@ Store in-memory for quick demo or persist to JSON/SQLite/low-cost DB for realist
 
 ## Use cases
 
-- Learning: practice React/Vue/Svelte + backend API integration
+- Learning: practice html/css/js + backend API integration
 - Prototyping: test wallet-style UX flows without real money
 - Fun: generate funny screenshots of big balances
 - Teaching: illustrate transactions, idempotency, and validation
